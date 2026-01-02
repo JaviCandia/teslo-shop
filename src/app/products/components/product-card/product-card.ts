@@ -12,8 +12,4 @@ import { ProductImagePipe } from '@products/pipes/product-image-pipe';
 export class ProductCard {
 
   product = input.required<Product>();
-
-  images = computed(() => {
-    return `http://localhost:3000/api/files/product/${this.product().images[0]}`
-  })
 }

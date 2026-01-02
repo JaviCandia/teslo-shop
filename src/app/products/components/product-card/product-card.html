@@ -17,7 +17,7 @@
     </div> -->
   </figure>
   <div class="card-body">
-    <h2 class="card-title font-montserrat">{{ product().title }}</h2>
+    <h2 class="card-title font-montserrat hover:underline cursor-pointer" [routerLink]="['/product', product().slug]">{{ product().title }}</h2>
     <p>{{ product().description | slice : 0 : 70 }}...</p>
     <div class="card-actions justify-end">
       <!-- <button [routerLink]="['/product', 't-shirt']" class="btn btn-primary">Ver Producto</button> -->

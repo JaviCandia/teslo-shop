@@ -1,4 +1,3 @@
-import { httpResource } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
 import { ProductCard } from '@products/components/product-card/product-card';
 import { ProductsService } from '@products/services/products.service';
