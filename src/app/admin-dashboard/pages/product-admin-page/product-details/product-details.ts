@@ -1,4 +1,4 @@
-import { Component, effect, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -27,6 +27,19 @@ export class ProductDetails {
   wasSaved = signal(false);
   availableSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
+  // Arquitectura: fusionamos las imagenes del product() con las imagenes del file uploader
+  imageFileList: FileList | undefined = undefined;
+  tempImages = signal<string[]>([]);
+
+  carouselImages = computed(() => {
+    const currentImages = this.product().images;
+    const newImages = this.tempImages();
+    
+    // Spread operator para fusionar ambos arrays
+    return [ ...currentImages, ...newImages ];
+  });
+
+
   // Formulario NonNullable (Evita conflictos null vs undefined)
   productForm = this.fb.nonNullable.group({
     title: ['', Validators.required],
@@ -34,7 +47,7 @@ export class ProductDetails {
     slug: ['', [Validators.required, Validators.pattern(FormUtils.slugPattern)]],
     price: [0, [Validators.required, Validators.min(0)]],
     stock: [0, [Validators.required, Validators.min(0)]],
-    sizes: [[] as string[]], 
+    sizes: [[] as string[]],
     images: [[] as string[]],
     tags: [''],
     gender: ['men', [Validators.required, Validators.pattern(/men|women|kid|unisex/)]],
@@ -46,7 +59,7 @@ export class ProductDetails {
       const prod = this.product();
       this.productForm.reset({
         ...prod,
-        tags: prod.tags.join(', '), 
+        tags: prod.tags.join(', '),
       });
     });
   }
@@ -67,12 +80,11 @@ export class ProductDetails {
 
     const { tags, ...formValues } = this.productForm.getRawValue();
 
-    // ✅ CORRECCIÓN 2: Casting explícito para TODOS los tipos personalizados
     const payload: Partial<Product> = {
       ...formValues,
       tags: this.parseTags(tags),
-      gender: formValues.gender as Gender, // TypeScript confía en nosotros
-      sizes: formValues.sizes as Size[],   // TypeScript confía en nosotros
+      gender: formValues.gender as Gender,
+      sizes: formValues.sizes as Size[],
     };
 
     try {
@@ -81,7 +93,7 @@ export class ProductDetails {
         const created = await firstValueFrom(this.productsService.createProduct(payload));
         this.router.navigate(['/admin/products', created.id]);
       } else {
-        await firstValueFrom(this.productsService.updateProduct(this.product().id, payload));
+        await firstValueFrom(this.productsService.updateProduct(this.product().id, payload, this.imageFileList));
         this.showSuccessFeedback();
       }
     } catch (error) {
@@ -90,11 +102,32 @@ export class ProductDetails {
   }
 
   private parseTags(tags: string): string[] {
-    return tags.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);
+    return tags
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 0);
   }
 
   private showSuccessFeedback() {
     this.wasSaved.set(true);
     setTimeout(() => this.wasSaved.set(false), 3000);
+  }
+
+  
+  onFilesChanged(event: Event) {
+    const fileList = (event.target as HTMLInputElement).files;
+    this.imageFileList = fileList ?? undefined;
+
+    const imageUrls = Array.from(fileList ?? []).map((file) => URL.createObjectURL(file));
+
+    this.tempImages.set(imageUrls);
+  }
+
+  /* * Arquitectura: TIP SENIOR ADICIONAL: Gestión de Memoria
+   * Las URLs blob se quedan en memoria del navegador hasta que se cierran.
+   * En una app muy grande, deberías limpiarlas al destruir el componente.
+   */
+  ngOnDestroy() {
+    this.tempImages().forEach(url => URL.revokeObjectURL(url));
   }
 }

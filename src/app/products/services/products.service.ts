@@ -2,7 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { User } from '@auth/interfaces/user.interface';
 import { Gender, Product, ProductsResponse } from '@products/interfaces/product.interface';
-import { Observable, of, tap } from 'rxjs';
+import { forkJoin, map, Observable, of, tap } from 'rxjs';
+import { concatMap } from 'rxjs/operators'; // ✅ Importante: Usamos concatMap
 import { environment } from 'src/environments/environment';
 
 interface Options {
@@ -28,73 +29,76 @@ const emptyProduct: Product = {
 @Injectable({ providedIn: 'root' })
 export class ProductsService {
   private http = inject(HttpClient);
+  private readonly baseUrl = environment.baseUrl;
 
   getProducts(options: Options): Observable<ProductsResponse> {
     const { limit = 9, offset = 0, gender = '' } = options;
 
     return this.http
-      .get<ProductsResponse>(`${environment.baseUrl}/products`, {
-        params: {
-            limit,
-            offset,
-            gender
-        }
+      .get<ProductsResponse>(`${this.baseUrl}/products`, {
+        params: { limit, offset, gender },
       })
       .pipe(tap(console.log));
   }
 
   getProductByIdSlug(idSlug: string): Observable<Product> {
-
     return this.http
-      .get<ProductsResponse>(`${environment.baseUrl}/products/${idSlug}`)
-      .pipe(
-        tap(console.log)
-      )
+      .get<ProductsResponse>(`${this.baseUrl}/products/${idSlug}`)
+      .pipe(tap(console.log));
   }
 
   getProductById(id: string): Observable<Product> {
     if (id === 'new') {
       return of(emptyProduct);
     }
+    return this.http.get<Product>(`${this.baseUrl}/products/${id}`);
+  }
 
-    // if (this.productCache.has(id)) {
-    //   return of(this.productCache.get(id)!);
-    // }
-
-    return this.http
-      .get<Product>(`${environment.baseUrl}/products/${id}`);
-      // .pipe(tap((product) => this.productCache.set(id, product)));
+  // Arquitectura: toda esta parte de subir imagenes lo podrás usar como referencia para futuros proyectos
+  createProduct(productLike: Partial<Product>, imageFileList?: FileList): Observable<Product> {
+    return this.uploadImages(imageFileList).pipe(
+      map(imageNames => this.preparePayload(productLike, imageNames)),
+      // Usamos concatMap para asegurar la creación
+      concatMap(payload => this.http.post<Product>(`${this.baseUrl}/products`, payload))
+    );
   }
 
   updateProduct(
     id: string,
-    productLike: Partial<Product>
+    productLike: Partial<Product>,
+    imageFileList?: FileList
   ): Observable<Product> {
-    return this.http
-      .patch<Product>(`${environment.baseUrl}/products/${id}`, productLike)
-      // .pipe(tap((product) => this.updateProductCache(product)));
+    return this.uploadImages(imageFileList).pipe(
+      map(imageNames => this.preparePayload(productLike, imageNames)),
+      // concatMap evita que se cancele la petición si el usuario da doble click rápido
+      concatMap(payload =>
+        this.http.patch<Product>(`${this.baseUrl}/products/${id}`, payload)
+      )
+    );
   }
 
-  createProduct(productLike: Partial<Product>): Observable<Product> {
-    return this.http
-      .post<Product>(`${environment.baseUrl}/products`, productLike)
-      // .pipe(tap((product) => this.updateProductCache(product)));
+  private preparePayload(productLike: Partial<Product>, newImages: string[]): Partial<Product> {
+    const currentImages = productLike.images ?? [];
+    return {
+      ...productLike,
+      images: [...currentImages, ...newImages],
+    };
   }
 
-  // updateProductCache(product: Product) {
-  //   const productId = product.id;
+  uploadImages(images?: FileList): Observable<string[]> {
+    if (!images) return of([]);
 
-  //   this.productCache.set(productId, product);
+    const uploadObservables = Array.from(images).map((imageFile) => this.uploadImage(imageFile));
 
-  //   this.productsCache.forEach((productResponse) => {
-  //     productResponse.products = productResponse.products.map(
-  //       (currentProduct) =>
-  //         currentProduct.id === productId ? product : currentProduct
-  //     );
-  //   });
+    return forkJoin(uploadObservables).pipe(tap((imageNames) => console.log({ imageNames })));
+  }
 
-  //   console.log('Caché actualizado');
-  // }
+  uploadImage(imageFile: File): Observable<string> {
+    const formData = new FormData();
+    formData.append('file', imageFile);
+
+    return this.http
+      .post<{ fileName: string }>(`${this.baseUrl}/files/product`, formData)
+      .pipe(map((resp) => resp.fileName));
+  }
 }
-
-// TODO: cambiar el nombre de la implementación y del archivo a functional o nuevo standard
