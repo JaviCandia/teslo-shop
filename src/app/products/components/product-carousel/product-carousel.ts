@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { ProductImagePipe } from '@products/pipes/product-image-pipe';
 
 @Component({
@@ -8,7 +8,9 @@ import { ProductImagePipe } from '@products/pipes/product-image-pipe';
   styles: ``,
 })
 export class ProductCarousel {
-
   images = input.required<string[]>();
 
+  displayImages = computed(() => {
+    return this.images().length > 0 ? this.images() : [''];
+  });
 }

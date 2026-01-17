@@ -1,11 +1,7 @@
 <div class="carousel carousel-center bg-neutral rounded-box max-w-md space-x-4 p-4">
-  @for (image of images(); track $index) {
+  @for (image of displayImages(); track $index) {
   <div class="carousel-item w-full object-cover">
-    <img
-      [src]="image | productImage"
-      alt="Product"
-      class="rounded-box"
-    />
+    <img [src]="image | productImage" alt="Product" class="rounded-box" />
   </div>
   }
 </div>
