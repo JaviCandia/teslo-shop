@@ -1,6 +1,11 @@
 <div class="card bg-base-100 shadow-sm animate-fadeIn h-full">
   <figure>
-    <img [src]="product().images | productImage" [alt]="product().title" />
+    <img
+      [src]="product().images | productImage"
+      [alt]="product().title"
+      [routerLink]="['/product', product().slug]"
+      class="cursor-pointer"
+    />
     <!-- <div class="carousel rounded-box w-64">
       @for (image of product().images; track $index) {
       <div class="carousel-item w-full">
@@ -21,9 +26,5 @@
       {{ product().title }}
     </h2>
     <p>{{ product().description | slice: 0 : 70 }}...</p>
-    <div class="card-actions justify-end mt-auto">
-      <!-- <button [routerLink]="['/product', 't-shirt']" class="btn btn-primary">Ver Producto</button> -->
-      <a [routerLink]="['/product', product().slug]" class="link link-primary">Ver producto</a>
-    </div>
   </div>
 </div>
